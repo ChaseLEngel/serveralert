@@ -4,6 +4,14 @@ require 'json'
 
 class HelpDeskAPI
 
+  SignInError  = Class.new(StandardError)
+  AuthenticityTokenError = Class.new(StandardError)
+  CsrfTokenError = Class.new(StandardError)
+  SessionsError = Class.new(StandardError)
+  NoCreatorIdError = Class.new(StandardError)
+  RequestError = Class.new(StandardError)
+  OrganizationIdError = Class.new(StandardError)
+
   module Priority
     HIGH = '1'
     MEDIUM = '2'
@@ -29,24 +37,21 @@ class HelpDeskAPI
     begin
       sign_in_res = RestClient.get(URL + 'sign_in')
     rescue RestClient::ExceptionWithResponse => error
-      puts "Error contacting #{URL + 'sign_in'}: #{error}"
-      raise
+      fail SignInError, "Error contacting #{URL + 'sign_in'}: #{error}"
     end
 
     # Parse authenticity_token from sign in form.
     page = Nokogiri::HTML(sign_in_res)
     @authenticity_token = page.css('form').css('input')[1]['value']
     unless @authenticity_token
-      puts 'Error parsing authenticity_token: Token not found.'
-      raise
+      fail AuthenticityTokenError, 'Error parsing authenticity_token: Token not found.'
     end
     # Parse sign_in HTML for csrf-token
     page.css('meta').each do |tag|
       @csrf_token = tag['content'] if tag['name'] == 'csrf-token'
     end
     unless @csrf_token
-      puts 'Error: No csrf-token found'
-      raise
+      fail CsrfTokenError, 'No csrf-token found'
     end
 
     # Set cookies for later requests
@@ -57,8 +62,7 @@ class HelpDeskAPI
     RestClient.post(URL + 'sessions', body, {:cookies => @cookies}) do |response, request, result, &block|
       # Response should be a 302 redirect from /sessions
       if responseError?(response)
-        puts "Error contacting #{URL + 'sessions'}: #{error}"
-        raise
+        fail SessionsError, "Error contacting #{URL + 'sessions'}: #{error}"
       end
       # Update cookies just incase
       @cookies = response.cookies
@@ -145,8 +149,7 @@ class HelpDeskAPI
     return @organization_id if @organization_id
     tickets = all
     if tickets.empty?
-      puts "No tickets exist to parse organization_id from."
-      raise
+      fail OrganizationIdError, "At least one ticket must exist to parse organization_id."
     end
     @organization_id = tickets.first['organization_id']
   end
@@ -158,8 +161,7 @@ class HelpDeskAPI
         @creator_id = user['id'] if user['email'] == @username
       end
       unless @creator_id
-        puts "Failed to find creator_id for user: #{@username}"
-        raise
+        fail NoCreatorIdError, "Failed to find creator_id for user: #{@username}"
       end
     end
     return @creator_id
@@ -183,8 +185,7 @@ class HelpDeskAPI
       when 'POST'
         @api[endpoint].post(payload, headers) do |response, request, result, &block|
           if responseError?(response)
-            puts "Error contacting #{response.request.url} with HTTP code: #{response.code}"
-            raise
+            fail RequestError, "Error contacting #{response.request.url} with HTTP code: #{response.code}"
           end
           # Update cookies just incase
           @cookies = response.cookies
@@ -193,12 +194,8 @@ class HelpDeskAPI
       when 'GET'
         endpoint_response = @api[endpoint].get(headers)
         if responseError?(endpoint_response)
-          puts "Error contacting #{response.request.url} with HTTP code: #{response.code}"
-          raise
+          fail RequestError, "Error contacting #{response.request.url} with HTTP code: #{response.code}"
         end
-      else
-        puts "Error: Unknown HTTP method #{method}"
-        raise
     end
     JSON.parse endpoint_response
   end

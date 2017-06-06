@@ -17,8 +17,6 @@ help_desk = settings['help_desk']
 # How often in minutes workers will run.
 # m denotes minutes
 interval = settings['interval'] + "m"
-# Path to file where Logger will write.
-logfile = settings['logfile']
 # Settings and credentials for email
 email = settings['email']
 
@@ -26,10 +24,22 @@ locker_path = File.dirname(__FILE__) + '/../servers.lock'
 locker = Locker.new(locker_path)
 
 # Start logging to logfile defined in config.json.
-Logger.instance.file = logfile
+logger_path = File.dirname(__FILE__) + '/../serveralert.log'
+Logger.instance.file = logger_path
 
 # Instantiate Help Desk API with config.json credentials.
 api = HelpDeskAPI.new(help_desk['email'], help_desk['password'])
+
+assignee_id = nil
+api.users.each do |user|
+  if user['email'] == help_desk['assignee_email']
+    assignee_id = user['id']
+  end
+end
+unless assignee_id
+  puts "Failed to find assignee email #{help_desk['assignee_email']} in Spiceworks users."
+  exit
+end
 
 # Instantiate Mailer with config.json email settings
 mailer = Mailer.new(email['smtp'], email['port'], email['domain'], email['from'], email['password'], email['to'])
@@ -37,7 +47,7 @@ mailer = Mailer.new(email['smtp'], email['port'], email['domain'], email['from']
 # Create workers for all servers defined in config.json.
 workers = []
 config['servers'].each do |server|
-  workers.push(Worker.new(server['hostname'], server['ip'], api, mailer, locker))
+  workers.push(Worker.new(server['hostname'], server['ip'], api, assignee_id, mailer, locker))
 end
 
 # Start background jobs to run workers on interval.
