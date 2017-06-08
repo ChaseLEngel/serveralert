@@ -1,58 +1,55 @@
 require 'json'
 require 'rufus-scheduler'
 
-require File.dirname(__FILE__) + '/serveralert/locker'
 require File.dirname(__FILE__) + '/serveralert/helpdeskapi'
 require File.dirname(__FILE__) + '/serveralert/mailer'
 require File.dirname(__FILE__) + '/serveralert/logger'
 require File.dirname(__FILE__) + '/serveralert/config'
 require File.dirname(__FILE__) + '/serveralert/worker'
+require File.dirname(__FILE__) + '/serveralert/server'
+require File.dirname(__FILE__) + '/serveralert/database'
+
+database_path = File.dirname(__FILE__) + '/../serveralert.sqlite3'
+Database.instance.open database_path
 
 # Parse config.json
 config_path = File.dirname(__FILE__) + '/../config.json'
-config = JSON.parse(File.read(config_path))
-settings = config['settings']
-# Credentials for Spiceworks Help Desk
-help_desk = settings['help_desk']
-# How often in minutes workers will run.
-# m denotes minutes
-interval = settings['interval'] + "m"
-# Settings and credentials for email
-email = settings['email']
+config = Config.new config_path
 
-locker_path = File.dirname(__FILE__) + '/../servers.lock'
-locker = Locker.new(locker_path)
-
-# Start logging to logfile defined in config.json.
 logger_path = File.dirname(__FILE__) + '/../serveralert.log'
 Logger.instance.file = logger_path
 
 # Instantiate Help Desk API with config.json credentials.
-api = HelpDeskAPI.new(help_desk['email'], help_desk['password'])
+api = HelpDeskAPI.new(config.settings.help_desk.email, config.settings.help_desk.password)
 
 assignee_id = nil
 api.users.each do |user|
-  if user['email'] == help_desk['assignee_email']
+  if user['email'] == config.settings.help_desk.assignee_email
     assignee_id = user['id']
   end
 end
 unless assignee_id
-  puts "Failed to find assignee email #{help_desk['assignee_email']} in Spiceworks users."
+  puts "Failed to find assignee email #{config.settings.help_desk.assignee_email} in Spiceworks users."
   exit
 end
 
 # Instantiate Mailer with config.json email settings
-mailer = Mailer.new(email['smtp'], email['port'], email['domain'], email['from'], email['password'], email['to'])
+mailer = Mailer.new(config.settings.email.smtp,
+                    config.settings.email.port,
+                    config.settings.email.domain,
+                    config.settings.email.from,
+                    config.settings.email.password,
+                    config.settings.email.to)
 
 # Create workers for all servers defined in config.json.
 workers = []
-config['servers'].each do |server|
-  workers.push(Worker.new(server['hostname'], server['ip'], api, assignee_id, mailer, locker))
+config.servers.each do |server|
+  workers.push(Worker.new(server, api, assignee_id, mailer))
 end
 
 # Start background jobs to run workers on interval.
 scheduler = Rufus::Scheduler.new
-scheduler.every interval do
+scheduler.every config.settings.interval do
   workers.each { |worker| worker.run }
 end
 
