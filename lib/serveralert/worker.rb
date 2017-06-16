@@ -41,16 +41,21 @@ class Worker
       Logger.instance.info "No response from #{@server.name}. Submitting Help Desk ticket."
       @server.lock
       begin
-        @server.ticket_id = @api.newTicket(@ticket_title, @ticket_message, @assignee_id, @ticket_priority)['id']
+        ticket_id = @api.newTicket(@ticket_title, @ticket_message, @assignee_id, @ticket_priority)['id']
+        if ticket_id.nil?
+          Logger.instance.error "Ticket submitted for #{@server.name} but returned nil ticket_id. Skipping."
+          return
+        end
+        @server.ticket_id = ticket_id
       rescue Exception => error
         Logger.instance.error "Failed to submit Help Desk ticket: #{error}"
         @mailer.send(@mail_subject, mail_body(error))
         raise error
       end
-    elsif @server.locked?
+    elsif @server.locked? # True if ticket has been submitted(locked) and ping has responsed.
       # Comment on existing ticket that server is online.
       begin
-        if @server.ticket_id
+        if @server.ticket_id.nil?
           Logger.instance.error "Server #{@server.name} is locked but doesn't have ticket_id set. Unlocking."
         else
           Logger.instance.info "Server #{@server.name} is back online. Sending comment to ticket #{@server.ticket_id}."
