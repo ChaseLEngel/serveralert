@@ -12,7 +12,7 @@ class Server
       server = Database.instance.insert(name, ip)
     end
     @ticket_id = server[4]
-    @ping = Net::Ping::External.new(@ip)
+    @ping = Net::Ping::External.new @ip
   end
 
   def ping?

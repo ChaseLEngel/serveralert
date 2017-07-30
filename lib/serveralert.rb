@@ -1,7 +1,7 @@
 require 'json'
 require 'rufus-scheduler'
+require 'HelpDeskAPI'
 
-require File.dirname(__FILE__) + '/serveralert/helpdeskapi'
 require File.dirname(__FILE__) + '/serveralert/mailer'
 require File.dirname(__FILE__) + '/serveralert/logger'
 require File.dirname(__FILE__) + '/serveralert/config'
@@ -9,23 +9,21 @@ require File.dirname(__FILE__) + '/serveralert/worker'
 require File.dirname(__FILE__) + '/serveralert/server'
 require File.dirname(__FILE__) + '/serveralert/database'
 
-database_path = File.dirname(__FILE__) + '/../serveralert.sqlite3'
-Database.instance.open database_path
+# Open SQLite3 database
+Database.instance.open File.dirname(__FILE__) + '/../serveralert.sqlite3'
 
 # Parse config.json
-config_path = File.dirname(__FILE__) + '/../config.json'
-config = Config.new config_path
+config = Config.new File.dirname(__FILE__) + '/../config.json'
 
-logger_path = File.dirname(__FILE__) + '/../serveralert.log'
-Logger.instance.file = logger_path
+Logger.instance.file = File.dirname(__FILE__) + '/../serveralert.log'
 
 # Instantiate Help Desk API with config.json credentials.
-api = HelpDeskAPI.new(config.settings.help_desk.email, config.settings.help_desk.password)
+HelpDeskAPI::Client.new config.settings.help_desk.email, config.settings.help_desk.password
 
 assignee_id = nil
-api.users.each do |user|
-  if user['email'] == config.settings.help_desk.assignee_email
-    assignee_id = user['id']
+HelpDeskAPI::Users.users.each do |user|
+  if user.email == config.settings.help_desk.assignee_email
+    assignee_id = user.id
   end
 end
 unless assignee_id
@@ -44,7 +42,7 @@ mailer = Mailer.new(config.settings.email.smtp,
 # Create workers for all servers defined in config.json.
 workers = []
 config.servers.each do |server|
-  workers.push(Worker.new(server, api, assignee_id, mailer))
+  workers.push Worker.new(server, assignee_id, mailer)
 end
 
 # Start background jobs to run workers on interval.

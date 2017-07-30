@@ -38,7 +38,6 @@ class Mailer
     # mail gem doesn't like instance variables.
     fromer = @from
     toer = @to
-    puts fromer
     Mail.deliver do
       from fromer
       to toer
