@@ -1,10 +1,10 @@
 require File.dirname(__FILE__) + '/database'
-
-require 'net/ping/external'
+require File.dirname(__FILE__) + '/ping'
 
 class Server
   attr_reader :name, :ip, :ticket_id
-  def initialize(name, ip)
+
+  def initialize(name, ip, ping_options)
     @name = name
     @ip = ip
     server = Database.instance.find(name, ip)
@@ -12,7 +12,7 @@ class Server
       server = Database.instance.insert(name, ip)
     end
     @ticket_id = server[4]
-    @ping = Net::Ping::External.new @ip
+    @ping = Ping.new @ip, ping_options.count, ping_options.wait
   end
 
   def ping?

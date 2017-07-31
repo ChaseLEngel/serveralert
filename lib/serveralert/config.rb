@@ -34,13 +34,24 @@ class Config
       end
     end
 
-    attr_reader :interval, :help_desk, :email
-    ATTRIBUTES = ['interval', 'help_desk', 'email']
+    class Ping < Config
+      attr_reader :count, :wait
+      ATTRIBUTES = ['count', 'wait']
+      def initialize(ping_hash)
+        validateHash(ping_hash, ATTRIBUTES)
+        @count = ping_hash['count']
+        @wait = ping_hash['wait']
+      end
+    end
+
+    attr_reader :interval, :help_desk, :email, :ping
+    ATTRIBUTES = ['interval', 'help_desk', 'email', 'ping']
     def initialize(settings_hash)
       validateHash(settings_hash, ATTRIBUTES)
       @interval = settings_hash['interval'] + 'm'
       @help_desk = HelpDesk.new settings_hash['help_desk']
       @email = Email.new settings_hash['email']
+      @ping = Ping.new settings_hash['ping']
     end
   end
 
@@ -51,7 +62,15 @@ class Config
       @servers = []
       servers_array.each do |server|
         validateHash(server, ATTRIBUTES)
-        @servers.push Server.new(server['name'], server['ip'])
+        @servers << Server.new(server['name'], server['ip'])
+      end
+    end
+
+    class Server
+      attr_reader :name, :ip
+      def initialize(name, ip)
+        @name = name
+        @ip = ip
       end
     end
   end

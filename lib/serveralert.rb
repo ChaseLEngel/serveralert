@@ -42,13 +42,18 @@ mailer = Mailer.new(config.settings.email.smtp,
 # Create workers for all servers defined in config.json.
 workers = []
 config.servers.each do |server|
-  workers.push Worker.new(server, assignee_id, mailer)
+  # Create server object to hold name, ip, and ping options
+  server_obj = Server.new server.name, server.ip, config.settings.ping
+  # Give worker server to run, Help Desk assignee, and mailer object
+  workers.push Worker.new(server_obj, assignee_id, mailer)
 end
 
 # Start background jobs to run workers on interval.
 scheduler = Rufus::Scheduler.new
-scheduler.every config.settings.interval do
-  workers.each { |worker| worker.run }
+workers.each do |worker|
+  scheduler.every config.settings.interval do
+    worker.run
+  end
 end
 
 # Redirect scheduler errors to log file.
