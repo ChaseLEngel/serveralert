@@ -1,5 +1,7 @@
 require 'json'
 
+require File.dirname(__FILE__) + '/server'
+
 class Config
   NoConfigFile = Class.new(StandardError)
   NoSettings = Class.new(StandardError)
@@ -32,43 +34,24 @@ class Config
       end
     end
 
-    class Ping < Config
-      attr_reader :count, :wait
-      ATTRIBUTES = ['count', 'wait']
-      def initialize(ping_hash)
-        validateHash(ping_hash, ATTRIBUTES)
-        @count = ping_hash['count']
-        @wait = ping_hash['wait']
-      end
-    end
-
-    attr_reader :interval, :help_desk, :email, :ping
-    ATTRIBUTES = ['interval', 'help_desk', 'email', 'ping']
+    attr_reader :interval, :help_desk, :email
+    ATTRIBUTES = ['interval', 'help_desk', 'email']
     def initialize(settings_hash)
       validateHash(settings_hash, ATTRIBUTES)
       @interval = settings_hash['interval'] + 'm'
       @help_desk = HelpDesk.new settings_hash['help_desk']
       @email = Email.new settings_hash['email']
-      @ping = Ping.new settings_hash['ping']
     end
   end
 
   class Servers < Config
     attr_reader :servers
-    ATTRIBUTES = ['name', 'ip']
+    ATTRIBUTES = ['name', 'ip', 'count', 'wait']
     def initialize(servers_array)
       @servers = []
       servers_array.each do |server|
         validateHash(server, ATTRIBUTES)
-        @servers << Server.new(server['name'], server['ip'])
-      end
-    end
-
-    class Server
-      attr_reader :name, :ip
-      def initialize(name, ip)
-        @name = name
-        @ip = ip
+        @servers << Server.new(server['name'], server['ip'], server['count'], server['wait'])
       end
     end
   end

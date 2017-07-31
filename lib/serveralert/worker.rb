@@ -57,7 +57,6 @@ class Worker
         raise error
       end
 
-
       # Lock server so no other ticket can be sent.
       @server.lock
 
