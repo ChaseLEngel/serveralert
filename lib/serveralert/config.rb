@@ -1,7 +1,5 @@
 require 'json'
 
-require File.dirname(__FILE__) + '/server'
-
 class Config
   NoConfigFile = Class.new(StandardError)
   NoSettings = Class.new(StandardError)
