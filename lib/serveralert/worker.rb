@@ -29,8 +29,17 @@ class Worker
   def run
     Logger.instance.info "Worker running ping for #{@server.name}"
 
+    response = false
+    begin
+      response = @server.ping?
+    rescue StandardError => error
+      Logger.instance.error error
+      @mailer.send(@mail_subject, mail_body(error))
+      raise error
+    end
+
     # Sends ping to server ip
-    if !@server.ping?
+    if !response
       send_ticket_and_lock
     elsif @server.locked? # True if ticket has been submitted(locked) and ping has responsed.
       send_comment_and_unlock

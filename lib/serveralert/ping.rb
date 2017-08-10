@@ -21,10 +21,12 @@ class Ping
       case thread.value.exitstatus
       when 0 # At least one response was heard from the specified host.
         return true
-      when 2 # The transmission was successful but no responses were received.
+      when 1 # (Linux) The transmission was successful but no responses were received.
+        return false
+      when 2 # (OSX) The transmission was successful but no responses were received.
         return false
       else # Error
-        raise StandardError, "Failed to execute command: #{cmd.inspect}"
+        raise StandardError, "Unknown return value from execution of command: #{cmd.inspect}"
       end
     end
   end
